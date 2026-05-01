@@ -310,7 +310,7 @@ export default function App() {
   const studySessionWords = useMemo(() => {
     const now = Date.now();
     const due = words.filter(w => !w.nextReview || w.nextReview <= now || w.status === 'new');
-    return due.sort(() => Math.random() - 0.5).slice(0, 9);
+    return due.sort(() => Math.random() - 0.5).slice(0, 6);
   }, [words, activeTab]);
 
   return (
@@ -507,7 +507,7 @@ export default function App() {
               
               {studySessionWords.length > 0 && (
                 <div className="text-center pt-8">
-                  <p className="text-gray-300 text-xs font-black uppercase tracking-[0.2em]">高效学习建议：每次复习不超过 9 个单词效果最佳</p>
+                  <p className="text-gray-300 text-xs font-black uppercase tracking-[0.2em]">高效学习建议：每次复习 6 个单词效果最佳</p>
                 </div>
               )}
             </div>
