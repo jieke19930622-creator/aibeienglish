@@ -1,6 +1,6 @@
 {
   "name": "SmartVocab AI",
-  "description": "An AI-powered vocabulary learning app with smart definitions, flashcards, and progress tracking.",
+  "description": "AI-powered vocabulary learning app with Ebbinghaus memory algorithm, UK pronunciation, and smart word definitions.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

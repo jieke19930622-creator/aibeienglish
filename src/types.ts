@@ -9,14 +9,6 @@ export interface WordDefinition {
   meaning: string;
   example: string;
   mnemonic?: string;
-  category?: string;
-}
-
-export interface LearningStats {
-  totalWords: number;
-  masteredWords: number;
-  learningWords: number;
-  streak: number;
 }
 
 export interface UserWord extends WordDefinition {
@@ -27,4 +19,10 @@ export interface UserWord extends WordDefinition {
   easeFactor: number;
   interval: number;
   addedAt: number;
+}
+
+export interface LearningStats {
+  total: number;
+  learning: number;
+  mastered: number;
 }
