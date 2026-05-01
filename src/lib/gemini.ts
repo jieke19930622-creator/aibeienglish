@@ -35,26 +35,3 @@ export async function getWordDefinition(word: string): Promise<WordDefinition> {
     throw new Error("Could not fetch word definition");
   }
 }
-
-export async function extractWordsFromText(text: string): Promise<string[]> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: `Extract a list of English vocabulary words worth learning from the following text: "${text}". If it's a list, just return the list. If it's a sentence, extract the key nouns, verbs, adjectives that are likely for a learner. Return a JSON array of strings.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING }
-      }
-    }
-  });
-
-  try {
-    const words = JSON.parse(response.text.trim());
-    return Array.isArray(words) ? words : [];
-  } catch (error) {
-    console.error("Failed to extract words:", error);
-    // Fallback: simple split and filter
-    return text.split(/\s+/).map(w => w.replace(/[^a-zA-Z]/g, '')).filter(w => w.length > 2);
-  }
-}

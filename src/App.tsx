@@ -23,7 +23,7 @@ import {
   Languages
 } from 'lucide-react';
 import { UserWord, LearningStats, WordDefinition } from './types';
-import { getWordDefinition, extractWordsFromText } from './lib/gemini';
+import { getWordDefinition } from './lib/gemini';
 
 // --- Components ---
 
@@ -183,8 +183,6 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'study' | 'list' | 'stats'>('study');
   const [error, setError] = useState<string | null>(null);
-  const [pendingWords, setPendingWords] = useState<string[]>([]);
-  const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     localStorage.setItem('vocab_words', JSON.stringify(words));
@@ -205,88 +203,30 @@ export default function App() {
     setError(null);
 
     const input = newWord.trim();
-    const isSentence = input.includes(' ') || input.length > 20 || input.includes('\n');
 
     try {
-      if (isSentence) {
-        const extracted = await extractWordsFromText(input);
-        const uniqueNew = extracted.filter(w => 
-          !words.some(existing => existing.word.toLowerCase() === w.toLowerCase())
-        );
-        if (uniqueNew.length > 0) {
-          setPendingWords(uniqueNew);
-          setSelectedWords(new Set(uniqueNew));
-        } else {
-          setError('未识别到新单词或单词全部已存在');
-        }
+      if (words.some(w => w.word.toLowerCase() === input.toLowerCase())) {
+        setError('单词已在列表中');
       } else {
-        if (words.some(w => w.word.toLowerCase() === input.toLowerCase())) {
-          setError('单词已在列表中');
-        } else {
-          const def = await getWordDefinition(input);
-          const wordObj: UserWord = {
-            ...def,
-            id: Math.random().toString(36).substr(2, 9),
-            status: 'new',
-            addedAt: Date.now(),
-            nextReview: Date.now(), // Due immediately
-            easeFactor: 2.5,
-            interval: 0,
-          };
-          setWords(prev => [wordObj, ...prev]);
-          setNewWord('');
-          speakWord(wordObj.word);
-        }
-      }
-    } catch (err) {
-      setError('处理失败，请检查网络或重试');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const confirmBulkAdd = async () => {
-    setIsLoading(true);
-    const toAdd = Array.from(selectedWords);
-    setPendingWords([]);
-    
-    try {
-      const results = await Promise.all(
-        toAdd.map(async (w) => {
-          try {
-            return await getWordDefinition(w);
-          } catch (e) {
-            return null;
-          }
-        })
-      );
-
-      const newWords: UserWord[] = results
-        .filter((r): r is WordDefinition => r !== null)
-        .map(def => ({
+        const def = await getWordDefinition(input);
+        const wordObj: UserWord = {
           ...def,
           id: Math.random().toString(36).substr(2, 9),
           status: 'new',
           addedAt: Date.now(),
-          nextReview: Date.now(),
+          nextReview: Date.now(), // Due immediately
           easeFactor: 2.5,
           interval: 0,
-        }));
-
-      setWords(prev => [...newWords, ...prev]);
-      setNewWord('');
+        };
+        setWords(prev => [wordObj, ...prev]);
+        setNewWord('');
+        speakWord(wordObj.word);
+      }
     } catch (err) {
-      setError('批量添加部分失败');
+      setError('无法获取单词详情，请重试');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const toggleSelectedWord = (w: string) => {
-    const next = new Set(selectedWords);
-    if (next.has(w)) next.delete(w);
-    else next.add(w);
-    setSelectedWords(next);
   };
 
   const handleReview = (id: string, mastery: 'again' | 'mastered') => {
@@ -353,18 +293,18 @@ export default function App() {
         {activeTab !== 'study' && (
           <section className="mb-8 max-w-xl mx-auto">
             <form onSubmit={handleAddWord} className="relative group">
-              <textarea 
+              <input 
+                type="text"
                 value={newWord}
                 onChange={(e) => setNewWord(e.target.value)}
-                placeholder="添加单个单词或复制文章段落..."
-                rows={newWord.includes('\n') || newWord.length > 50 ? 3 : 1}
-                className="w-full bg-white border border-gray-200 rounded-2xl py-4 pl-12 pr-4 shadow-xs focus:ring-4 focus:ring-indigo-100 focus:border-indigo-300 outline-none transition-all placeholder:text-gray-400 font-medium resize-none shadow-sm"
+                placeholder="输入新单词 (例如: ephemeral)"
+                className="w-full bg-white border border-gray-200 rounded-2xl py-4 pl-12 pr-4 shadow-xs focus:ring-4 focus:ring-indigo-100 focus:border-indigo-300 outline-none transition-all placeholder:text-gray-400 font-medium shadow-sm"
               />
-              <Search className="absolute left-4 top-5 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
               <button 
                 type="submit"
                 disabled={isLoading || !newWord.trim()}
-                className="absolute right-2 top-2 bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 active:scale-95 disabled:opacity-50 transition-all"
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 active:scale-95 disabled:opacity-50 transition-all"
               >
                 {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
               </button>
@@ -373,71 +313,6 @@ export default function App() {
           </section>
         )}
 
-        {/* Bulk Selection Overlay */}
-        <AnimatePresence>
-          {pendingWords.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-900/10 backdrop-blur-md"
-            >
-              <motion.div 
-                initial={{ y: 20, scale: 0.95 }}
-                animate={{ y: 0, scale: 1 }}
-                className="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl flex flex-col max-h-[85vh]"
-              >
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-2xl font-black">发现新词汇</h3>
-                    <p className="text-sm text-gray-400 font-medium">勾选你想开始学习的单词</p>
-                  </div>
-                  <button onClick={() => setPendingWords([])} className="p-2 hover:bg-gray-100 rounded-full">
-                    <X className="w-6 h-6 text-gray-400" />
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-2.5 mb-8">
-                  {pendingWords.map(word => (
-                    <button 
-                      key={word}
-                      onClick={() => toggleSelectedWord(word)}
-                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
-                        selectedWords.has(word) 
-                        ? 'border-indigo-600 bg-indigo-50/30 text-indigo-900 pointer-events-auto' 
-                        : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                        selectedWords.has(word) ? 'bg-indigo-600 border-indigo-600 shadow-indigo-100' : 'border-gray-200'
-                      }`}>
-                        {selectedWords.has(word) && <CheckCircle2 className="w-4 h-4 text-white" />}
-                      </div>
-                      <span className="font-bold text-lg">{word}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => setPendingWords([])}
-                    className="flex-1 py-4 font-bold text-gray-400 bg-gray-50 rounded-2xl hover:bg-gray-100"
-                  >
-                    再想想
-                  </button>
-                  <button 
-                    onClick={confirmBulkAdd}
-                    disabled={selectedWords.size === 0 || isLoading}
-                    className="flex-[2] py-4 font-black text-white bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                  >
-                    {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                    确认加入 ({selectedWords.size})
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Content Area */}
         <main>
@@ -504,12 +379,6 @@ export default function App() {
                   </div>
                 )}
               </AnimatePresence>
-              
-              {studySessionWords.length > 0 && (
-                <div className="text-center pt-8">
-                  <p className="text-gray-300 text-xs font-black uppercase tracking-[0.2em]">高效学习建议：每次复习 6 个单词效果最佳</p>
-                </div>
-              )}
             </div>
           )}
 
